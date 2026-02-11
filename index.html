@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" href="favicon.png" type="image/png">
     <title>Lead Management System</title>
     <link rel="manifest" href="/manifest.json">
 <meta name="theme-color" content="#2563eb">
@@ -657,6 +656,8 @@
                 <button class="nav-tab" data-type="rental">🔑 Rental Leads</button>
                 <button class="nav-tab" data-type="selling">💰 Selling Leads</button>
                 <button class="nav-tab" data-type="agent">👔 Agent Leads</button>
+                <button class="nav-tab" data-type="pending">📋 Pending</button>
+
             </div>
         </div>
     </nav>
@@ -951,6 +952,7 @@ if ("serviceWorker" in navigator) {
             rental: `${BASE_SHEET_URL}?sheet=Rental`,
             selling: `${BASE_SHEET_URL}?sheet=selling`,
             agent: `${BASE_SHEET_URL}?sheet=agentLeads`,
+            pending: `${BASE_SHEET_URL}?sheet=endData`
         };
 
         // Global State
@@ -1072,9 +1074,26 @@ if ("serviceWorker" in navigator) {
                 if (data.success) {
                     // Filter leads based on assigned numbers
                     allLeads = data.data.filter(lead => {
-                        const phoneNumber = lead['Phone Number'] || lead.Number;
-                        return assignedLeadNumbers.includes(phoneNumber);
-                    });
+
+    let phoneNumber = lead['Phone Number'] || lead.Number || '';
+
+    phoneNumber = phoneNumber
+        .replace('@s.whatsapp.net', '')
+        .replace('@c.us', '')
+        .replace('+', '')
+        .trim();
+
+    const isAssigned = assignedLeadNumbers.some(num =>
+        num.replace('@s.whatsapp.net', '') === phoneNumber
+    );
+
+    if (currentLeadType === 'pending') {
+        return isAssigned && lead.done?.toLowerCase() === 'pending';
+    }
+
+    return isAssigned;
+});
+
 
                     filteredLeads = [...allLeads];
                     updateStats();
@@ -1118,6 +1137,7 @@ if ("serviceWorker" in navigator) {
                 if (currentLeadType === 'selling') return renderSellingLeadCard(lead, index);
                 if (currentLeadType === 'rental') return renderRentalLeadCard(lead, index);
                 if (currentLeadType === 'agent') return renderAgentCard(lead, index);
+                if (currentLeadType === 'pending') return renderPendingLeadCard(lead, index);
                 return renderBuyingLeadCard(lead, index);
 
             }).join('');
@@ -1196,6 +1216,11 @@ Note: ${lead.note || "-"}
  })})'>
  📝 Add Log
 </button>
+
+<button class="btn btn-call" onclick="openWhatsApp('${phoneNumber}')">
+    💬 WhatsApp
+</button>
+
 
             </div>
         </div>
@@ -1288,6 +1313,10 @@ Note: ${lead.note || "-"}
  📝 Add Log
 </button>
 
+<button class="btn btn-call" onclick="openWhatsApp('${phoneNumber}')">
+    💬 WhatsApp
+</button>
+
             </div>
         </div>
     `;
@@ -1372,13 +1401,17 @@ Note: ${lead.note || "-"}
  📝 Add Log
 </button>
 
+<button class="btn btn-call" onclick="openWhatsApp('${phoneNumber}')">
+    💬 WhatsApp
+</button>
+
             </div>
         </div>
     `;
 }
 
 
-        function renderAgentCard(lead, index) {
+function renderAgentCard(lead, index) {
             const phoneNumber = lead['Phone Number'] || '';
             const cleanPhone = phoneNumber.replace('@s.whatsapp.net', '');
             const callCount = callCounts[phoneNumber] || 0;
@@ -1432,10 +1465,107 @@ Note: ${lead.note || "-"}
  📝 Add Log
 </button>
 
+<button class="btn btn-call" onclick="openWhatsApp('${phoneNumber}')">
+    💬 WhatsApp
+</button>
+
                     </div>
                 </div>
             `;
         }
+
+
+function renderPendingLeadCard(lead, index) {
+    return `
+        <div class="lead-card" style="animation-delay:${index * 0.05}s">
+            <div class="lead-header">
+                <div class="lead-name">${lead['Customer Name'] || 'Unknown'}</div>
+                <span class="intent-badge intent-warm">PENDING</span>
+            </div>
+
+            <div class="lead-details">
+
+                ${lead['Call_attempt'] ? `
+                <div class="detail-row">
+                    <span class="detail-label">📞 Attempts:</span>
+                    <span class="detail-value">${lead['Call_attempt']}</span>
+                </div>` : ''}
+
+                <div class="detail-row">
+                    <span class="detail-label">📱 Number:</span>
+                    <span class="detail-value">${lead['Number'] || '-'}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">🏠 Property:</span>
+                    <span class="detail-value">${lead['Property Type'] || '-'}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">📍 Location:</span>
+                    <span class="detail-value">${lead['Preferred Location'] || '-'}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">💰 Budget:</span>
+                    <span class="detail-value">${lead['Budget Range'] || '-'}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">📊 Status:</span>
+                    <span class="detail-value">${lead['Call Status'] || '-'}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">🔁 Transaction:</span>
+                    <span class="detail-value">${lead['Transaction Type'] || '-'}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">🏗 Config:</span>
+                    <span class="detail-value">${lead['Configuration'] || '-'}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">💬 Response:</span>
+                    <span class="detail-value">${lead['Customer Response'] || '-'}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">🔥 Interest:</span>
+                    <span class="detail-value">${lead['Interest Level'] || '-'}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">⚠️ Objection:</span>
+                    <span class="detail-value">${lead['Objection / Reason'] || '-'}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">⏳ Follow-up:</span>
+                    <span class="detail-value">${lead['Next Follow-up Timeline'] || '-'}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">📅 Next Call:</span>
+                    <span class="detail-value">${lead['Next Call Date'] || '-'}</span>
+                </div>
+
+                <div class="detail-row">
+                    <span class="detail-label">⭐ Priority:</span>
+                    <span class="detail-value">${lead['Call Priority'] || '-'}</span>
+                </div>
+
+                ${lead['Caller Remarks'] ? `
+                <div class="detail-row">
+                    <span class="detail-label">📝 Remarks:</span>
+                    <span class="detail-value">${lead['Caller Remarks']}</span>
+                </div>` : ''}
+
+            </div>
+        </div>
+    `;
+}
 
 
       function openCallLogModal(leadData) {
@@ -1559,7 +1689,29 @@ async function handleCallLogSubmit(e) {
 }
 
 
+function openWhatsApp(phoneNumber) {
+
+    const cleanPhone = String(phoneNumber)
+        .replace('@s.whatsapp.net', '')
+        .replace('@c.us', '')
+        .replace('+', '')
+        .trim();
+
+    // If India default country code needed, ensure it starts with 91
+    const finalNumber = cleanPhone.startsWith('91')
+        ? cleanPhone
+        : '91' + cleanPhone;
+
+    const message = encodeURIComponent(
+        "Hi 👋 This is from Nisha Homes regarding your property enquiry."
+    );
+
+    const whatsappURL = `https://wa.me/${finalNumber}?text=${message}`;
+
+    window.open(whatsappURL, '_blank');
+}
+
+
     </script>
 </body>
-
 </html>
