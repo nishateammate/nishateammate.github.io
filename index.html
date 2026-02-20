@@ -899,6 +899,15 @@
                 </select>
             </div>
 
+
+            <div class="form-group">
+                <label class="form-label">Status</label>
+                <select class="form-input" id="Status">
+                    <option>Pending</option>
+                    <option>Done</option>
+                </select>
+            </div>
+
             <div class="form-group">
                 <label class="form-label">Caller Remarks</label>
                 <textarea class="form-textarea" id="callerRemarks"></textarea>
@@ -908,6 +917,21 @@
         </form>
     </div>
 </div>
+
+<div id="reassignModal" class="modal">
+  <div class="modal-content">
+    <h3>Reassign Lead</h3>
+
+    <input type="hidden" id="reassignPhone">
+    <input type="hidden" id="reassignLeadId">
+
+    <select id="newEmployeeSelect"></select>
+
+    <button onclick="submitReassign()">Confirm</button>
+    <button onclick="closeModal('reassignModal')">Cancel</button>
+  </div>
+</div>
+
 
 
 
@@ -942,18 +966,19 @@ if ("serviceWorker" in navigator) {
 }
 </script>
 
-    <script>
+<script>
         // Configuration
-        const TEAM_ASSIGN_URL = "https://script.google.com/macros/s/AKfycbzpQbPRBoRdp6lbQO-zyS4PSLi1LDZUmGIx68Jy4T7zKFZZmWf-wGNE-Z-urfzqYuJv/exec?sheet=teamassign";
-        const BASE_SHEET_URL = "https://script.google.com/macros/s/AKfycbzpQbPRBoRdp6lbQO-zyS4PSLi1LDZUmGIx68Jy4T7zKFZZmWf-wGNE-Z-urfzqYuJv/exec";
-        
-        const SHEETS_CONFIG = {
-            buying: `${BASE_SHEET_URL}?sheet=Leads`,
-            rental: `${BASE_SHEET_URL}?sheet=Rental`,
-            selling: `${BASE_SHEET_URL}?sheet=selling`,
-            agent: `${BASE_SHEET_URL}?sheet=agentLeads`,
-            pending: `${BASE_SHEET_URL}?sheet=endData`
-        };
+        const TEAM_ASSIGN_URL = "https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/get-team-assign";
+const MANAGER_NUMBER = "917303938618"; // only this employee can reassign
+let isManager = false;
+
+const SHEETS_CONFIG = {
+    buying:  "https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/leads",
+    rental:  "https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/rental-leads",
+    selling: "https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/selling-leads",
+    agent:   "https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/agent-leads",
+    pending: "https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/end-data"
+};
 
         // Global State
         let currentEmployee = null;
@@ -1028,84 +1053,95 @@ if ("serviceWorker" in navigator) {
         }
 
         async function verifyEmployee(employeeNumber) {
-            try {
-                const response = await fetch(TEAM_ASSIGN_URL);
-                const data = await response.json();
-                 
-                if (data.success) {
-                    const employee = data.data.find(emp => emp['Employee number'].toString() === employeeNumber);
-                    
-                    if (employee) {
-                        currentEmployee = employee;
-                        localStorage.setItem('employeeNumber', employeeNumber);
-                        document.getElementById('employeeModal').classList.remove('active');
-                        
-                        // Parse assigned lead numbers
-                        const leadsString = employee.Leads || '';
-                        assignedLeadNumbers = leadsString
-                            .replace(/[{}]/g, '')
-                            .split(',')
-                            .map(num => num.trim().replace('+', '') + '@s.whatsapp.net')
-                            .filter(Boolean);
+    try {
+        const response = await fetch(TEAM_ASSIGN_URL);
+        const employees = await response.json(); // direct array
 
-                        document.getElementById('userBadge').textContent = `👤 ${employee['Employee name']}`;
-                        
-                        await loadLeads();
-                    } else {
-                        alert('❌ Employee does not exist. Access denied.');
-                        localStorage.removeItem('employeeNumber');
-                        showEmployeeModal();
-                    }
-                }
-            } catch (error) {
-                console.error('Error verifying employee:', error);
-                alert('Error verifying employee. Please try again.');
-                hideLoader();
-            }
+        const employee = employees.find(emp =>
+            emp["Employee number"].toString() === employeeNumber
+        );
+
+        isManager = employee["Employee number"].toString() === MANAGER_NUMBER;
+
+        if (!employee) {
+            alert("❌ Employee does not exist");
+            return;
         }
 
-        async function loadLeads() {
-            showLoader();
-            try {
-                const url = SHEETS_CONFIG[currentLeadType];
-                const response = await fetch(url);
-                const data = await response.json();
+        currentEmployee = employee;
+        localStorage.setItem("employeeNumber", employeeNumber);
 
-                if (data.success) {
-                    // Filter leads based on assigned numbers
-                    allLeads = data.data.filter(lead => {
+        document.getElementById("employeeModal").classList.remove("active");
 
-    let phoneNumber = lead['Phone Number'] || lead.Number || '';
+        // 🔥 parse leads string
+        const leadsString = employee.Leads || "";
 
-    phoneNumber = phoneNumber
-        .replace('@s.whatsapp.net', '')
-        .replace('@c.us', '')
-        .replace('+', '')
-        .trim();
+        assignedLeadNumbers = leadsString
+            .replace(/[{}]/g, "")
+            .split(",")
+            .map(num =>
+                num.trim()
+                   .replace("+", "")
+                   .replace("@s.whatsapp.net", "")
+                   .replace("@c.us", "")
+                   .trim()
+            )
+            .filter(Boolean);
 
-    const isAssigned = assignedLeadNumbers.some(num =>
-        num.replace('@s.whatsapp.net', '') === phoneNumber
-    );
+        console.log("Assigned Leads:", assignedLeadNumbers);
 
-    if (currentLeadType === 'pending') {
-        return isAssigned && lead.done?.toLowerCase() === 'pending';
+        document.getElementById("userBadge").textContent =
+            `👤 ${employee["Employee name"]}`;
+
+        await loadLeads();
+
+    } catch (err) {
+        console.error(err);
+        alert("Error verifying employee");
     }
+}
 
-    return isAssigned;
-});
+async function loadLeads() {
+    showLoader();
+
+    try {
+        const url = SHEETS_CONFIG[currentLeadType];
+        const response = await fetch(url);
+        const data = await response.json();   // ✅ only once
+
+        // Your Flask API returns direct array
+        // NOT { success: true, data: [...] }
+
+        allLeads = data.filter(lead => {
+
+            let phoneNumber = String(
+                lead["Phone Number"] ||
+                lead["Number"] ||
+                ""
+            );
+
+            phoneNumber = phoneNumber
+                .replace("@s.whatsapp.net", "")
+                .replace("@c.us", "")
+                .replace("+", "")
+                .trim();
+
+            return assignedLeadNumbers.includes(phoneNumber);
+        });
+
+        filteredLeads = [...allLeads];
+        updateStats();
+        renderLeads();
+
+    } catch (error) {
+        console.error("Error loading leads:", error);
+        renderError();
+    } finally {
+        hideLoader();
+    }
+}
 
 
-                    filteredLeads = [...allLeads];
-                    updateStats();
-                    renderLeads();
-                }
-            } catch (error) {
-                console.error('Error loading leads:', error);
-                renderError();
-            } finally {
-                hideLoader();
-            }
-        }
 
         function updateStats() {
             const total = filteredLeads.length;
@@ -1221,6 +1257,14 @@ Note: ${lead.note || "-"}
     💬 WhatsApp
 </button>
 
+${isManager ? `
+<button class="btn btn-log"
+onclick="openReassignModal('${cleanPhone}', '${lead._id || ''}')">
+🔁 Reassign
+</button>
+` : ''}
+
+
 
             </div>
         </div>
@@ -1317,6 +1361,14 @@ Note: ${lead.note || "-"}
     💬 WhatsApp
 </button>
 
+${isManager ? `
+<button class="btn btn-log"
+onclick="openReassignModal('${cleanPhone}', '${lead._id || ''}')">
+🔁 Reassign
+</button>
+` : ''}
+
+
             </div>
         </div>
     `;
@@ -1405,6 +1457,14 @@ Note: ${lead.note || "-"}
     💬 WhatsApp
 </button>
 
+${isManager ? `
+<button class="btn btn-log"
+onclick="openReassignModal('${cleanPhone}', '${lead._id || ''}')">
+🔁 Reassign
+</button>
+` : ''}
+
+
             </div>
         </div>
     `;
@@ -1469,6 +1529,14 @@ Note: ${lead.note || "-"}
     💬 WhatsApp
 </button>
 
+${isManager ? `
+<button class="btn btn-log"
+onclick="openReassignModal('${cleanPhone}', '${lead._id || ''}')">
+🔁 Reassign
+</button>
+` : ''}
+
+
                     </div>
                 </div>
             `;
@@ -1476,6 +1544,11 @@ Note: ${lead.note || "-"}
 
 
 function renderPendingLeadCard(lead, index) {
+
+    const phoneNumber = lead['Number'] || '';
+            
+            const callCount = callCounts[phoneNumber] || 0;
+
     return `
         <div class="lead-card" style="animation-delay:${index * 0.05}s">
             <div class="lead-header">
@@ -1563,6 +1636,36 @@ function renderPendingLeadCard(lead, index) {
                 </div>` : ''}
 
             </div>
+
+            <div class="lead-actions">
+                <button class="btn btn-call" onclick="makeCall('${lead['Number']}')">
+                    📞 Call ${callCount > 0 ? `<span class="call-count">${callCount}</span>` : ''}
+                </button>
+
+                <button class="btn btn-log"
+ onclick='openCallLogModal(${JSON.stringify({
+   name:  lead['Lead Name'] || 'Unknown',
+   phone: lead['Number'],
+   type: "pending",
+   summary: `
+
+Phone: ${lead['Number']}
+Location: ${lead["Location Interested In"] || "-"}
+Property: ${lead["Property Type"] || "-"}
+Budget: ${lead["Budget Range"] || "-"}
+Timeline: ${lead["Buying Timeline"] || "-"}
+Note: ${lead.note || "-"}
+`
+ })})'>
+ 📝 Add Log
+</button>
+
+<button class="btn btn-call" onclick="openWhatsApp('${lead['Number']}')">
+    💬 WhatsApp
+</button>
+
+
+            </div>
         </div>
     `;
 }
@@ -1634,19 +1737,30 @@ function renderPendingLeadCard(lead, index) {
     .replace('@s.whatsapp.net', '')
     .replace('@c.us', '');
 
-  fetch(
-    'https://script.google.com/macros/s/AKfycbzpQbPRBoRdp6lbQO-zyS4PSLi1LDZUmGIx68Jy4T7zKFZZmWf-wGNE-Z-urfzqYuJv/exec?sheet=endData',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        action: 'call_attempt',
-        number: cleanPhone
-      })
+  fetch('https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/call-attempt', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    number: cleanPhone
+  })
+})
+.then(res => res.json())
+.then(data => {
+  console.log('Call logged:', data);
+
+  if (data.Call_attempt !== undefined) {
+    // Update button count dynamically
+    const btn = document.querySelector(`[onclick="makeCall('${phoneNumber}')"]`);
+    if (btn) {
+      btn.innerHTML = `📞 Call <span class="call-count">${data.Call_attempt}</span>`;
     }
-  )
-  .then(r => r.text())
-  .then(t => console.log('Call logged:', t))
-  .catch(err => console.error('Call log failed', err));
+  }
+})
+.catch(err => console.error('Call log failed', err));
+
+window.open(`tel:+${cleanPhone}`);
 
   // optional
    window.open(`tel:+${cleanPhone}`);
@@ -1672,6 +1786,7 @@ async function handleCallLogSubmit(e) {
         followupTimeline: document.getElementById('followupTimeline').value,
         nextCallDate: document.getElementById('nextCallDate').value,
         callPriority: document.getElementById('callPriority').value,
+        Status: document.getElementById('Status').value,
         callerRemarks: document.getElementById('callerRemarks').value,
 
         employee: currentEmployee?.['Employee name'],
@@ -1709,6 +1824,61 @@ function openWhatsApp(phoneNumber) {
     const whatsappURL = `https://wa.me/${finalNumber}?text=${message}`;
 
     window.open(whatsappURL, '_blank');
+}
+
+
+async function openReassignModal(phone, leadId) {
+
+    document.getElementById('reassignPhone').value = phone;
+    document.getElementById('reassignLeadId').value = leadId;
+
+    const res = await fetch(TEAM_ASSIGN_URL);
+    const employees = await res.json();
+
+    const select = document.getElementById('newEmployeeSelect');
+    select.innerHTML = '';
+
+    employees.forEach(emp => {
+        select.innerHTML += `
+            <option value="${emp['Employee number']}">
+                ${emp['Employee name']}
+            </option>
+        `;
+    });
+
+    document.getElementById('reassignModal').classList.add('active');
+}
+
+
+async function submitReassign() {
+
+    const phone = document.getElementById('reassignPhone').value;
+    const newEmployeeNumber = document.getElementById('newEmployeeSelect').value;
+
+    const collectionName = getCollectionName(currentLeadType);
+
+    await fetch("https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/reassign-lead", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            phone: phone.replace("+", ""),
+            newEmployeeNumber: newEmployeeNumber,
+            collection: collectionName   // ✅ send real collection
+        })
+    });
+
+    alert("✅ Lead reassigned successfully");
+
+    closeModal('reassignModal');
+    loadLeads();
+}
+
+
+function getCollectionName(type) {
+    if (type === 'selling') return 'sellingLeads';
+    if (type === 'rental') return 'RentalLeads';
+    if (type === 'agent') return 'agentLeads';
+    if (type === 'buying') return 'Leads';
 }
 
 
