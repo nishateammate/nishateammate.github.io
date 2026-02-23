@@ -828,7 +828,7 @@
             <form id="employeeForm">
                 <div class="form-group">
                     <label class="form-label">Your Number</label>
-                    <input type="tel" class="form-input" id="employeeNumber" required placeholder="Enter your employee number">
+                    <input type="text" class="form-input" id="employeeNumber" required placeholder="Enter your employee number">
                 </div>
                 <button type="submit" class="btn-submit">Submit</button>
             </form>
@@ -1154,40 +1154,65 @@ const SHEETS_CONFIG = {
         async function verifyEmployee(employeeNumber) {
     try {
         const response = await fetch(TEAM_ASSIGN_URL);
-        const employees = await response.json(); // direct array
+        const employees = await response.json();
 
-        const employee = employees.find(emp =>
-            emp["Employee number"].toString() === employeeNumber
-        );
-
-        isManager = employee["Employee number"].toString() === MANAGER_NUMBER;
+        const employee = employees.find(emp => {
+            console.log(
+              "Checking employee:",
+              emp["Employee number"],
+              "against",
+              employeeNumber
+            );
+            return emp["Employee number"].toString() === employeeNumber;
+        });
 
         if (!employee) {
             alert("❌ Employee does not exist");
             return;
         }
 
+        isManager =
+            employee["Employee number"].toString() === MANAGER_NUMBER;
+
         currentEmployee = employee;
         localStorage.setItem("employeeNumber", employeeNumber);
 
         document.getElementById("employeeModal").classList.remove("active");
 
-        // 🔥 parse leads string
-        const leadsString = employee.Leads || "";
+        // ✅ parse leads string
+       // const leadsString = employee.Leads || "";
 
-        assignedLeadNumbers = leadsString
-            .replace(/[{}]/g, "")
-            .split(",")
-            .map(num =>
-                num.trim()
-                   .replace("+", "")
-                   .replace("@s.whatsapp.net", "")
-                   .replace("@c.us", "")
-                   .trim()
-            )
-            .filter(Boolean);
+        let assignedLeadNumbers = [];
 
-        console.log("Assigned Leads:", assignedLeadNumbers);
+if (Array.isArray(employee.Leads)) {
+    // ✅ If already array (BEST CASE)
+    assignedLeadNumbers = employee.Leads.map(num =>
+        num.toString()
+            .replace("+", "")
+            .replace("@s.whatsapp.net", "")
+            .replace("@c.us", "")
+            .trim()
+    );
+}
+else if (typeof employee.Leads === "string") {
+    // ✅ Old string format
+    assignedLeadNumbers = employee.Leads
+        .replace(/[{}]/g, "")
+        .split(",")
+        .map(num =>
+            num.trim()
+                .replace("+", "")
+                .replace("@s.whatsapp.net", "")
+                .replace("@c.us", "")
+        )
+        .filter(Boolean);
+}
+else {
+    // null or undefined
+    assignedLeadNumbers = [];
+}
+
+console.log("Assigned Leads:", assignedLeadNumbers);
 
         document.getElementById("userBadge").textContent =
             `👤 ${employee["Employee name"]}`;
@@ -1199,6 +1224,7 @@ const SHEETS_CONFIG = {
         alert("Error verifying employee");
     }
 }
+
 
 async function loadLeads() {
     showLoader();
