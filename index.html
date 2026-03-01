@@ -1067,16 +1067,16 @@ if ("serviceWorker" in navigator) {
 
 <script>
         // Configuration
-        const TEAM_ASSIGN_URL = "https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/get-team-assign";
+        const TEAM_ASSIGN_URL = "https://api.phishnix.site/api/get-team-assign";
 const MANAGER_NUMBER = "918130505710"; // only this employee can reassign
 let isManager = false;
 
 const SHEETS_CONFIG = {
-    buying:  "https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/leads",
-    rental:  "https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/rental-leads",
-    selling: "https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/selling-leads",
-    agent:   "https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/agent-leads",
-    pending: "https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/end-data"
+    buying:  "https://api.phishnix.site/api/leads",
+    rental:  "https://api.phishnix.site/api/rental-leads",
+    selling: "https://api.phishnix.site/api/selling-leads",
+    agent:   "https://api.phishnix.site/api/agent-leads",
+    pending: "https://api.phishnix.site/api/end-data"
 };
 
         // Global State
@@ -1862,7 +1862,7 @@ Note: ${lead.note || "-"}
     .replace('@s.whatsapp.net', '')
     .replace('@c.us', '');
 
-  fetch('https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/call-attempt', {
+  fetch('https://api.phishnix.site/api/call-attempt', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'
@@ -1982,7 +1982,7 @@ async function submitReassign() {
 
     const collectionName = getCollectionName(currentLeadType);
 
-    await fetch("https://pcskkwk4w8gsk0s484kwscgw.coolify.phishnix.site/api/reassign-lead", {
+    await fetch("https://api.phishnix.site/api/reassign-lead", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
